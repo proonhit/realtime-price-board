@@ -1,0 +1,105 @@
+openapi: 3.1.0
+info:
+  title: Realtime Price Board API
+  version: 0.1.0
+  description: |
+    REST API cho bảng giá. Giá realtime được đẩy qua WebSocket tại `GET /ws`
+    (mỗi message là một `Tick` dạng JSON; ngay khi kết nối, server gửi giá mới nhất
+    của mọi mã).
+servers:
+  - url: http://localhost:8080
+paths:
+  /api/prices:
+    get:
+      summary: Giá mới nhất của mọi mã
+      responses:
+        "200":
+          description: Danh sách tick, sắp xếp theo mã
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Tick" }
+  /api/prices/{symbol}/history:
+    get:
+      summary: Lịch sử giá của một mã (cũ → mới)
+      parameters:
+        - $ref: "#/components/parameters/Symbol"
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 1000, default: 100 }
+      responses:
+        "200":
+          description: Danh sách tick theo thời gian tăng dần
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Tick" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/watchlist:
+    get:
+      summary: Danh sách mã đang theo dõi
+      responses:
+        "200":
+          description: Các mã, sắp xếp theo alphabet
+          content:
+            application/json:
+              schema: { type: array, items: { type: string }, example: [FPT, VNM] }
+    post:
+      summary: Thêm mã vào danh sách theo dõi
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [symbol]
+              properties:
+                symbol: { type: string, example: FPT }
+      responses:
+        "200":
+          description: Danh sách sau khi thêm
+          content:
+            application/json:
+              schema: { type: array, items: { type: string } }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/watchlist/{symbol}:
+    delete:
+      summary: Bỏ mã khỏi danh sách theo dõi
+      parameters:
+        - $ref: "#/components/parameters/Symbol"
+      responses:
+        "204": { description: Đã xoá }
+        "404": { $ref: "#/components/responses/Error" }
+  /healthz:
+    get:
+      summary: Health check
+      responses:
+        "200": { description: ok }
+components:
+  parameters:
+    Symbol:
+      name: symbol
+      in: path
+      required: true
+      schema: { type: string, example: FPT }
+  schemas:
+    Tick:
+      type: object
+      required: [symbol, price, ts]
+      properties:
+        symbol: { type: string, example: FPT }
+        price: { type: number, example: 120.35 }
+        ts: { type: integer, description: Unix milliseconds, example: 1760400000000 }
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+  responses:
+    Error:
+      description: Lỗi
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }

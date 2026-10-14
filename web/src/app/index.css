@@ -1,0 +1,111 @@
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --text: #1c2430;
+  --muted: #6b7380;
+  --border: #e3e6eb;
+  --accent: #2563eb;
+  --up: #16a34a;
+  --down: #dc2626;
+  --flat: #ca8a04;
+  --up-bg: rgba(22, 163, 74, 0.14);
+  --down-bg: rgba(220, 38, 38, 0.14);
+
+  font: 15px/1.5 system-ui, "Segoe UI", Roboto, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  color-scheme: light dark;
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1216;
+    --surface: #171b21;
+    --text: #e6e9ee;
+    --muted: #8b93a1;
+    --border: #262c35;
+    --accent: #60a5fa;
+    --up: #22c55e;
+    --down: #f87171;
+    --flat: #eab308;
+    --up-bg: rgba(34, 197, 94, 0.16);
+    --down-bg: rgba(248, 113, 113, 0.16);
+  }
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+.muted { color: var(--muted); }
+
+/* Layout */
+.layout { max-width: 880px; margin: 0 auto; padding: 0 16px 48px; }
+.topbar {
+  display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
+  padding: 16px 0; margin-bottom: 8px; border-bottom: 1px solid var(--border);
+}
+.brand { font-weight: 700; }
+.topbar nav { display: flex; gap: 16px; flex: 1; }
+.topbar nav a { color: var(--muted); padding: 4px 0; border-bottom: 2px solid transparent; }
+.topbar nav a:hover { color: var(--text); text-decoration: none; }
+.topbar nav a.active { color: var(--text); border-bottom-color: var(--accent); }
+main { padding-top: 16px; }
+
+/* UI */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; }
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.card-header h2 { margin: 0; font-size: 1.15rem; }
+.empty { color: var(--muted); margin: 16px 0; }
+
+.badge { font-size: 0.8rem; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+.badge-success { color: var(--up); border-color: currentColor; }
+.badge-danger { color: var(--down); border-color: currentColor; }
+
+.btn {
+  font: inherit; color: inherit; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px;
+}
+.btn:disabled { opacity: 0.5; cursor: default; }
+.btn-ghost { background: none; border-color: transparent; }
+.btn-ghost:hover:not(:disabled) { background: var(--bg); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.star { font-size: 1.1rem; line-height: 1; color: var(--muted); }
+.star.on { color: var(--flat); }
+
+/* Bảng giá */
+.price-table { width: 100%; border-collapse: collapse; }
+.price-table th { text-align: left; font-weight: 500; color: var(--muted); font-size: 0.85rem; }
+.price-table th, .price-table td { padding: 10px 8px; border-bottom: 1px solid var(--border); }
+.price-table tr:last-child td { border-bottom: none; }
+.num { text-align: right !important; font-variant-numeric: tabular-nums; }
+.symbol { font-weight: 700; color: var(--text); }
+.actions { width: 1%; text-align: right; }
+
+.price { font-weight: 600; font-variant-numeric: tabular-nums; }
+.price.up { color: var(--up); }
+.price.down { color: var(--down); }
+.price.flat { color: var(--flat); }
+.price span { padding: 2px 6px; border-radius: 4px; }
+.flash-up { animation: flash-up 0.6s ease-out; }
+.flash-down { animation: flash-down 0.6s ease-out; }
+@keyframes flash-up { from { background: var(--up-bg); } to { background: transparent; } }
+@keyframes flash-down { from { background: var(--down-bg); } to { background: transparent; } }
+@media (prefers-reduced-motion: reduce) {
+  .flash-up, .flash-down { animation: none; }
+}
+
+/* Trang chi tiết mã */
+.back { color: var(--muted); }
+.quote { font-size: 2rem; margin: 4px 0 16px; }
+.quote small { font-size: 0.85rem; font-weight: 400; }
+
+.chart { margin: 0; }
+.chart svg { display: block; width: 100%; height: 220px; }
+.chart-line { fill: none; stroke-width: 2; }
+.chart.up .chart-line { stroke: var(--up); }
+.chart.down .chart-line { stroke: var(--down); }
+.chart.up .chart-area { fill: var(--up-bg); }
+.chart.down .chart-area { fill: var(--down-bg); }
+.chart-meta { display: flex; justify-content: space-between; gap: 8px; font-size: 0.8rem; margin-top: 6px; }
