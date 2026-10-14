@@ -1,5 +1,6 @@
 node_modules/
 dist/
-api/api
-api/*.exe
+backend/api
+backend/producer
+*.exe
 .env

@@ -1,0 +1,4 @@
+CREATE TABLE IF NOT EXISTS watchlist (
+  symbol    VARCHAR(10) PRIMARY KEY,
+  added_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
