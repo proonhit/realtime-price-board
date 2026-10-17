@@ -87,3 +87,41 @@ func TestLatestSortsBySymbol(t *testing.T) {
 		}
 	}
 }
+
+func (f fakeLatest) Get(_ context.Context, symbol string) (Tick, error) {
+	for _, t := range f.ticks {
+		if t.Symbol == symbol {
+			return t, nil
+		}
+	}
+	return Tick{}, ErrNoPrice
+}
+
+func TestGetBySymbol(t *testing.T) {
+	svc := NewService(&fakeHistory{}, fakeLatest{ticks: []Tick{{Symbol: "FPT", Price: 120}}})
+	ctx := context.Background()
+
+	got, err := svc.GetBySymbol(ctx, " fpt ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Symbol != "FPT" || got.Price != 120 {
+		t.Fatalf("got %+v, want FPT 120", got)
+	}
+
+	tests := []struct {
+		name   string
+		symbol string
+		want   error
+	}{
+		{"unknown symbol", "AAPL", ErrUnknownSymbol},
+		{"no price yet", "VNM", ErrNoPrice},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := svc.GetBySymbol(ctx, tt.symbol); !errors.Is(err, tt.want) {
+				t.Fatalf("err = %v, want %v", err, tt.want)
+			}
+		})
+	}
+}

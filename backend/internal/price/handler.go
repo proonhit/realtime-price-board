@@ -17,6 +17,7 @@ func NewHandler(svc *Service) *Handler { return &Handler{svc: svc} }
 func (h *Handler) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/prices", h.latest)
 	mux.HandleFunc("GET /api/prices/{symbol}/history", h.history)
+	mux.HandleFunc("GET /api/prices/{symbol}", h.get)
 }
 
 func (h *Handler) latest(w http.ResponseWriter, r *http.Request) {
@@ -49,5 +50,17 @@ func (h *Handler) history(w http.ResponseWriter, r *http.Request) {
 		httpx.Internal(w, err)
 	default:
 		httpx.JSON(w, http.StatusOK, ticks)
+	}
+}
+
+func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
+	tick, err := h.svc.GetBySymbol(r.Context(), r.PathValue("symbol"))
+	switch {
+	case errors.Is(err, ErrUnknownSymbol), errors.Is(err, ErrNoPrice):
+		httpx.Error(w, http.StatusNotFound, err.Error())
+	case err != nil:
+		httpx.Internal(w, err)
+	default:
+		httpx.JSON(w, http.StatusOK, tick)
 	}
 }

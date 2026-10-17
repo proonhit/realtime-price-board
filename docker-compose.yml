@@ -36,7 +36,9 @@ services:
 
   producer:
     build: { context: ./backend, args: { CMD: producer } }
-    environment: *backend-env
+    environment:
+      <<: *backend-env
+      TICK_INTERVAL: 2s
     restart: unless-stopped
     depends_on:
       migrate: { condition: service_completed_successfully }
