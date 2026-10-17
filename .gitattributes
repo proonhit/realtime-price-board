@@ -1,0 +1,4 @@
+# Luôn dùng LF cho file Go để gofmt trên Windows không báo nhầm do CRLF.
+*.go text eol=lf
+go.mod text eol=lf
+go.sum text eol=lf
