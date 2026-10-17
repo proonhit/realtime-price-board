@@ -64,9 +64,9 @@ npm run dev        # http://localhost:5173, Vite proxy /api và /ws sang :8080
 | GET | `/ws` | WebSocket, mỗi message là một tick `{symbol, price, ts}` |
 | GET | `/api/prices` | Giá mới nhất của mọi mã |
 | GET | `/api/prices/{symbol}/history?limit=100` | Lịch sử giá (cũ → mới), `limit` 1–1000 |
-| GET | `/api/watchlist` | Danh sách mã đang theo dõi |
-| POST | `/api/watchlist` | Thêm mã, body `{"symbol": "FPT"}` |
-| DELETE | `/api/watchlist/{symbol}` | Bỏ mã khỏi danh sách |
+| GET | `/api/watchlist` | Danh sách mã đang theo dõi của user (cần Bearer token) |
+| POST | `/api/watchlist` | Thêm mã, body `{"symbol": "FPT"}` (cần Bearer token) |
+| DELETE | `/api/watchlist/{symbol}` | Bỏ mã khỏi danh sách (cần Bearer token) |
 
 ## Cấu trúc thư mục
 
@@ -99,6 +99,6 @@ Backend chia package theo tính năng, không chia theo tầng (controller/servi
 
 ## Hướng phát triển
 
-- Đăng nhập (JWT) và watchlist riêng cho từng người dùng
+- Frontend: màn hình đăng nhập và gửi Bearer token (watchlist API giờ yêu cầu đăng nhập)
 - Giảm tải ghi cho Postgres: batch insert hoặc TimescaleDB
 - Thử nhiều instance api: bỏ `ports` của service `api` trong compose rồi `docker compose up --scale api=3`
