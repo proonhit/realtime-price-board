@@ -1,5 +1,7 @@
 # realtime-price-board
 
+![CI](https://github.com/proonhit/realtime-price-board/actions/workflows/ci.yml/badge.svg)
+
 Bảng giá chứng khoán realtime đơn giản: giá được sinh giả lập, đẩy tới trình duyệt qua WebSocket và lưu lịch sử trong PostgreSQL.
 
 **Stack:** Go · React (TypeScript, Vite) · Redis · WebSocket · PostgreSQL · Docker Compose
