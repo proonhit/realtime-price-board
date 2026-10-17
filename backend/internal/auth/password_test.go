@@ -25,4 +25,7 @@ func TestCheckPassword(t *testing.T) {
 	if !CheckPassword(hash, password) {
 		t.Fatal("Expected password to be valid")
 	}
+	if CheckPassword(hash, "wrong-password") {
+		t.Fatal("Expected wrong password to be rejected")
+	}
 }
