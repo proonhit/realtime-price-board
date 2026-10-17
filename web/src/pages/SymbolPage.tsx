@@ -6,7 +6,7 @@ import { usePriceStream } from "../features/price-board/hooks/usePriceStream";
 import { direction } from "../features/price-board/types";
 import { useHistory } from "../features/price-history/api/getHistory";
 import { PriceChart } from "../features/price-history/components/PriceChart";
-import { WatchToggle } from "../features/watchlist/components/WatchToggle";
+import { WatchAction } from "./shared/WatchAction";
 
 export function SymbolPage() {
   const code = (useParams().code ?? "").toUpperCase();
@@ -38,7 +38,7 @@ export function SymbolPage() {
           {code}
         </>
       }
-      actions={<WatchToggle symbol={code} />}
+      actions={<WatchAction symbol={code} />}
     >
       {live && (
         <p className={`quote price ${direction(live)}`}>
