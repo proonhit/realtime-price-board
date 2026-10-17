@@ -1,0 +1,102 @@
+# CI: tự động kiểm tra code mỗi khi push hoặc mở pull request.
+name: CI
+
+# Khi nào workflow chạy.
+on:
+  push:
+    branches:
+      - main
+      - "dev/**" # mọi nhánh bắt đầu bằng dev/, ví dụ dev/add_login
+  pull_request:
+    branches:
+      - main # PR nhắm vào main
+
+# Nếu push liên tiếp lên cùng một nhánh, huỷ lần chạy cũ, chỉ giữ lần mới nhất.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Quyền tối thiểu: workflow chỉ cần đọc code, không cần ghi gì vào repo.
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: Backend (Go)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend # mọi lệnh "run" chạy trong thư mục backend/
+    steps:
+      # Tải code của commit đang được kiểm tra về máy ảo.
+      - uses: actions/checkout@v4
+
+      # Cài Go đúng phiên bản ghi trong go.mod và bật cache module/build.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      # Kiểm tra format: gofmt -l liệt kê file chưa format; có file nào thì fail.
+      - name: Check formatting (gofmt)
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "Các file sau chưa chạy gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      # Phân tích tĩnh: tìm lỗi hay gặp (Printf sai format, copy mutex...).
+      - name: Vet
+        run: go vet ./...
+
+      # Chạy test kèm race detector; -count=1 để không dùng kết quả test cache.
+      - name: Test
+        run: go test -race -count=1 ./...
+
+      # Đảm bảo mọi package (kể cả cmd/api, cmd/producer) đều compile được.
+      - name: Build
+        run: go build ./...
+
+  web:
+    name: Web (React)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web # mọi lệnh "run" chạy trong thư mục web/
+    steps:
+      # Tải code về máy ảo.
+      - uses: actions/checkout@v4
+
+      # Cài Node 22 (giống image node:22-alpine trong web/Dockerfile) và cache thư mục npm.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # Cài dependency đúng y như package-lock.json (không tự nâng version).
+      - name: Install dependencies
+        run: npm ci
+
+      # Chạy ESLint theo cấu hình eslint.config.js.
+      - name: Lint
+        run: npm run lint
+
+      # Type-check bằng tsc rồi build production bằng Vite.
+      - name: Build
+        run: npm run build
+
+  docker:
+    name: Docker images
+    runs-on: ubuntu-latest
+    needs: [backend, web] # chỉ chạy khi hai job trên đều pass
+    steps:
+      # Tải code về máy ảo.
+      - uses: actions/checkout@v4
+
+      # Build các image có "build:" trong docker-compose.yml (api, producer, web).
+      # Chỉ build, không chạy container.
+      - name: Build images
+        run: docker compose build
