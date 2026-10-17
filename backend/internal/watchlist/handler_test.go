@@ -1,7 +1,9 @@
 package watchlist
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -83,6 +85,8 @@ func TestHandlerStatusCodes(t *testing.T) {
 		{"add unknown symbol", http.MethodPost, "/api/watchlist", `{"symbol":"AAPL"}`, http.StatusBadRequest},
 		{"remove missing", http.MethodDelete, "/api/watchlist/FPT", "", http.StatusNotFound},
 		{"remove unknown symbol", http.MethodDelete, "/api/watchlist/AAPL", "", http.StatusNotFound},
+		// Body lớn hơn giới hạn 1KB của MaxBytesReader bị chặn trước khi decode xong.
+		{"add body too large", http.MethodPost, "/api/watchlist", `{"symbol":"` + strings.Repeat("A", 2000) + `"}`, http.StatusBadRequest},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -118,6 +122,38 @@ func TestHandlerIsolatesUsers(t *testing.T) {
 	}
 	if rec := do(mux, http.MethodDelete, "/api/watchlist/FPT", "", alice); rec.Code != http.StatusNoContent {
 		t.Fatalf("alice delete FPT status = %d, want 204", rec.Code)
+	}
+}
+
+// errStore giả lập storage bị lỗi để kiểm tra nhánh 500.
+type errStore struct{}
+
+var errDB = errors.New("dial tcp 10.0.0.5:5432: connection refused")
+
+func (errStore) List(context.Context, string) ([]string, error)       { return nil, errDB }
+func (errStore) Add(context.Context, string, string) error            { return errDB }
+func (errStore) Remove(context.Context, string, string) (bool, error) { return false, errDB }
+
+// Lỗi storage phải thành 500 với thông báo chung, không lộ chi tiết nội bộ (địa chỉ DB...).
+func TestHandlerStoreError(t *testing.T) {
+	mux := http.NewServeMux()
+	NewHandler(NewService(errStore{}), auth.RequireAuth(testTokens)).Register(mux)
+
+	tests := []struct{ method, path, body string }{
+		{http.MethodGet, "/api/watchlist", ""},
+		{http.MethodPost, "/api/watchlist", `{"symbol":"FPT"}`},
+		{http.MethodDelete, "/api/watchlist/FPT", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.method, func(t *testing.T) {
+			rec := do(mux, tt.method, tt.path, tt.body, bearer(t, "alice"))
+			if rec.Code != http.StatusInternalServerError {
+				t.Fatalf("status = %d, want 500", rec.Code)
+			}
+			if body := rec.Body.String(); strings.Contains(body, "10.0.0.5") || !strings.Contains(body, "internal error") {
+				t.Fatalf("body = %s, want generic internal error", body)
+			}
+		})
 	}
 }
 
