@@ -38,6 +38,18 @@ paths:
                 items: { $ref: "#/components/schemas/Tick" }
         "400": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+  /api/prices/{symbol}:
+    get:
+      summary: Giá mới nhất của một mã
+      parameters:
+        - $ref: "#/components/parameters/Symbol"
+      responses:
+        "200":
+          description: Giá mới nhất của mã
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Tick" }
+        "404": { $ref: "#/components/responses/Error" } 
   /api/watchlist:
     get:
       summary: Danh sách mã đang theo dõi

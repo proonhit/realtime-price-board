@@ -20,6 +20,7 @@ type historyReader interface {
 
 type latestReader interface {
 	All(ctx context.Context) ([]Tick, error)
+	Get(ctx context.Context, symbol string) (Tick, error)
 }
 
 type Service struct {
@@ -60,4 +61,16 @@ func (s *Service) History(ctx context.Context, symbol string, limit int) ([]Tick
 	}
 	slices.Reverse(ticks)
 	return ticks, nil
+}
+
+func (s *Service) GetBySymbol(ctx context.Context, symbol string) (Tick, error) {
+	sym, err := NormalizeSymbol(symbol)
+	if err != nil {
+		return Tick{}, err
+	}
+	tick, err := s.latest.Get(ctx, sym)
+	if err != nil {
+		return Tick{}, err
+	}
+	return tick, nil
 }

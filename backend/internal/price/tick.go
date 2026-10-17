@@ -15,7 +15,7 @@ type Tick struct {
 
 // Universe là danh sách mã được hỗ trợ và giá khởi điểm của từng mã.
 var Universe = map[string]float64{
-	"VNM": 65, "FPT": 120, "HPG": 27, "VIC": 42, "MWG": 60,
+	"VNM": 65, "FPT": 120, "HPG": 27, "VIC": 42, "MWG": 60, "VCB": 90,
 }
 
 var ErrUnknownSymbol = errors.New("unknown symbol")
