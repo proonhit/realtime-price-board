@@ -80,7 +80,8 @@ func scanWallet(row pgx.Row) (Wallet, error) {
 // ... ON CONFLICT vào một ví đang bị transaction chuyển tiền khác UPDATE thì phải
 // chờ transaction đó kết thúc (Postgres cần biết dòng đang sửa có còn hay không
 // để quyết định có conflict), tức mọi request chỉ để "đọc ví" cũng xếp hàng sau
-// các giao dịch đang chạy. Integration test đã cho thấy điều này.
+// các giao dịch đang chạy. Integration test cho thấy điều này: khi INSERT trước,
+// 10 request cùng Idempotency-Key bị xếp hàng ngay tại đây, không bao giờ chạy song song.
 //
 // Chưa có ví thì INSERT ... ON CONFLICT (user_id) DO NOTHING rồi SELECT lại:
 // hai request đầu tiên đến cùng lúc thì một cái INSERT được, cái kia gặp conflict
