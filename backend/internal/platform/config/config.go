@@ -11,6 +11,9 @@ type Config struct {
 	DatabaseURL  string
 	RedisAddr    string
 	TickInterval time.Duration
+	JWTSecret    string
+	AccessTTL    time.Duration
+	RefreshTTL   time.Duration
 }
 
 func Load() Config {
@@ -19,6 +22,9 @@ func Load() Config {
 		DatabaseURL:  env("DATABASE_URL", "postgres://app:app@localhost:5432/priceboard"),
 		RedisAddr:    env("REDIS_ADDR", "localhost:6379"),
 		TickInterval: duration("TICK_INTERVAL", 500*time.Millisecond),
+		JWTSecret:    env("JWT_SECRET", "secret"),
+		AccessTTL:    duration("ACCESS_TTL", 15*time.Minute),
+		RefreshTTL:   duration("REFRESH_TTL", 7*24*time.Hour),
 	}
 }
 
