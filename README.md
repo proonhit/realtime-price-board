@@ -67,6 +67,9 @@ npm run dev        # http://localhost:5173, Vite proxy /api và /ws sang :8080
 | GET | `/api/watchlist` | Danh sách mã đang theo dõi của user (cần Bearer token) |
 | POST | `/api/watchlist` | Thêm mã, body `{"symbol": "FPT"}` (cần Bearer token) |
 | DELETE | `/api/watchlist/{symbol}` | Bỏ mã khỏi danh sách (cần Bearer token) |
+| GET | `/api/wallet` | Ví ảo của user, tạo lần đầu với 1.000.000 VND demo (cần Bearer token) |
+| POST | `/api/transfers` | Chuyển tiền, header `Idempotency-Key`, body `{"to_username": "bob", "amount": 50000}` (cần Bearer token) |
+| GET | `/api/transfers?limit=20` | Lịch sử chuyển/nhận tiền, `limit` 1–100 (cần Bearer token) |
 
 ## Cấu trúc thư mục
 
@@ -77,7 +80,8 @@ backend/
 │   └── producer/         # sinh giá
 ├── internal/
 │   ├── price/            # model, generator, store (Postgres), cache (Redis), service, handler
-│   ├── watchlist/        # danh sách theo dõi
+│   ├── watchlist/        # danh sách theo dõi (riêng từng user)
+│   ├── wallet/           # ví ảo + chuyển tiền (transaction, FOR UPDATE, idempotency key)
 │   ├── realtime/         # hub WebSocket + Redis Pub/Sub
 │   └── platform/         # config, postgres, redis, httpx
 ├── migrations/
