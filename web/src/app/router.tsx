@@ -1,5 +1,8 @@
 import { createBrowserRouter } from "react-router";
+import { RequireAuth } from "../features/auth/components/RequireAuth";
 import { BoardPage } from "../pages/BoardPage";
+import { LoginPage } from "../pages/LoginPage";
+import { RegisterPage } from "../pages/RegisterPage";
 import { SymbolPage } from "../pages/SymbolPage";
 import { WatchlistPage } from "../pages/WatchlistPage";
 import { RootLayout } from "./RootLayout";
@@ -15,7 +18,16 @@ export const router = createBrowserRouter([
         children: [
           { index: true, element: <BoardPage /> },
           { path: "symbol/:code", element: <SymbolPage /> },
-          { path: "watchlist", element: <WatchlistPage /> },
+          {
+            path: "watchlist",
+            element: (
+              <RequireAuth>
+                <WatchlistPage />
+              </RequireAuth>
+            ),
+          },
+          { path: "login", element: <LoginPage /> },
+          { path: "register", element: <RegisterPage /> },
           { path: "*", element: <RouteError /> },
         ],
       },
