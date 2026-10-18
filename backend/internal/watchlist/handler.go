@@ -5,24 +5,46 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/proonhit/realtime-price-board/backend/internal/auth"
 	"github.com/proonhit/realtime-price-board/backend/internal/platform/httpx"
 	"github.com/proonhit/realtime-price-board/backend/internal/price"
 )
 
 type Handler struct {
-	svc *Service
+	svc         *Service
+	requireAuth func(http.Handler) http.Handler
 }
 
-func NewHandler(svc *Service) *Handler { return &Handler{svc: svc} }
+// NewHandler nhận sẵn middleware xác thực thay vì nhận auth.Tokens. Nhờ vậy
+// watchlist không cần biết token là JWT hay gì khác, không cần secret, và test
+// có thể truyền một middleware giả gắn user id tuỳ ý.
+// Watchlist chỉ phụ thuộc auth.UserIDFrom để đọc user id mà middleware đã gắn.
+func NewHandler(svc *Service, requireAuth func(http.Handler) http.Handler) *Handler {
+	return &Handler{svc: svc, requireAuth: requireAuth}
+}
 
 func (h *Handler) Register(mux *http.ServeMux) {
-	mux.HandleFunc("GET /api/watchlist", h.list)
-	mux.HandleFunc("POST /api/watchlist", h.add)
-	mux.HandleFunc("DELETE /api/watchlist/{symbol}", h.remove)
+	mux.Handle("GET /api/watchlist", h.requireAuth(http.HandlerFunc(h.list)))
+	mux.Handle("POST /api/watchlist", h.requireAuth(http.HandlerFunc(h.add)))
+	mux.Handle("DELETE /api/watchlist/{symbol}", h.requireAuth(http.HandlerFunc(h.remove)))
+}
+
+// userID đọc user id do middleware gắn vào context. Không có (quên bọc route
+// bằng middleware) thì trả 401 luôn, không bao giờ rơi về một danh sách chung.
+func userID(w http.ResponseWriter, r *http.Request) (string, bool) {
+	id, ok := auth.UserIDFrom(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized")
+	}
+	return id, ok
 }
 
 func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
-	syms, err := h.svc.List(r.Context())
+	uid, ok := userID(w, r)
+	if !ok {
+		return
+	}
+	syms, err := h.svc.List(r.Context(), uid)
 	if err != nil {
 		httpx.Internal(w, err)
 		return
@@ -31,6 +53,10 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) add(w http.ResponseWriter, r *http.Request) {
+	uid, ok := userID(w, r)
+	if !ok {
+		return
+	}
 	var body struct {
 		Symbol string `json:"symbol"`
 	}
@@ -39,7 +65,7 @@ func (h *Handler) add(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	syms, err := h.svc.Add(r.Context(), body.Symbol)
+	syms, err := h.svc.Add(r.Context(), uid, body.Symbol)
 	switch {
 	case errors.Is(err, price.ErrUnknownSymbol):
 		httpx.Error(w, http.StatusBadRequest, err.Error())
@@ -51,7 +77,11 @@ func (h *Handler) add(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) remove(w http.ResponseWriter, r *http.Request) {
-	err := h.svc.Remove(r.Context(), r.PathValue("symbol"))
+	uid, ok := userID(w, r)
+	if !ok {
+		return
+	}
+	err := h.svc.Remove(r.Context(), uid, r.PathValue("symbol"))
 	switch {
 	case errors.Is(err, price.ErrUnknownSymbol), errors.Is(err, ErrNotInWatchlist):
 		httpx.Error(w, http.StatusNotFound, err.Error())

@@ -52,15 +52,22 @@ paths:
         "404": { $ref: "#/components/responses/Error" } 
   /api/watchlist:
     get:
-      summary: Danh sách mã đang theo dõi
+      summary: Danh sách mã đang theo dõi của user hiện tại
+      description: Mỗi user có danh sách riêng, xác định bằng access token.
+      security:
+        - bearerAuth: []
       responses:
         "200":
           description: Các mã, sắp xếp theo alphabet
           content:
             application/json:
               schema: { type: array, items: { type: string }, example: [FPT, VNM] }
+        "401": { $ref: "#/components/responses/Error" }
     post:
-      summary: Thêm mã vào danh sách theo dõi
+      summary: Thêm mã vào danh sách theo dõi của user hiện tại
+      description: Thêm mã đã có thì không lỗi, danh sách giữ nguyên.
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -77,13 +84,17 @@ paths:
             application/json:
               schema: { type: array, items: { type: string } }
         "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
   /api/watchlist/{symbol}:
     delete:
-      summary: Bỏ mã khỏi danh sách theo dõi
+      summary: Bỏ mã khỏi danh sách theo dõi của user hiện tại
+      security:
+        - bearerAuth: []
       parameters:
         - $ref: "#/components/parameters/Symbol"
       responses:
         "204": { description: Đã xoá }
+        "401": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
   /api/auth/register:
     post:
@@ -165,6 +176,90 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/User" }
         "401": { $ref: "#/components/responses/Error" }
+  /api/wallet:
+    get:
+      summary: Ví của user hiện tại
+      description: |
+        Lần gọi đầu tiên tạo ví với số dư demo 1.000.000 VND.
+        Số tiền luôn là số nguyên đồng (VND không có đơn vị lẻ).
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Ví
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Wallet" }
+        "401": { $ref: "#/components/responses/Error" }
+  /api/transfers:
+    post:
+      summary: Chuyển tiền sang ví của user khác
+      description: |
+        Bắt buộc gửi header `Idempotency-Key`. Gửi lại cùng key với cùng nội dung
+        (người nhận + số tiền) thì không chuyển thêm mà trả lại kết quả cũ với
+        status 200 và header `Idempotent-Replayed: true`. Cùng key nhưng khác nội
+        dung thì trả 422. `balance` là số dư hiện tại của ví gửi.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          description: Chuỗi do client sinh (nên là UUID), duy nhất cho mỗi lần chuyển.
+          schema: { type: string, minLength: 1, maxLength: 100, example: 6f1c2f0e-9a4b-4c1e-8f7a-2b3d4e5f6a7b }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TransferRequest" }
+      responses:
+        "201":
+          description: Đã chuyển tiền
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TransferResult" }
+        "200":
+          description: Request gửi lại (cùng key, cùng nội dung); tiền không bị chuyển thêm
+          headers:
+            Idempotent-Replayed:
+              schema: { type: string, enum: ["true"] }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TransferResult" }
+        "400":
+          description: Body sai (amount không phải số nguyên 1..10^12), thiếu/sai Idempotency-Key, hoặc chuyển cho chính mình
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "404":
+          description: Không có user nhận
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: Không đủ số dư, hoặc Idempotency-Key đã dùng cho request khác
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+    get:
+      summary: Lịch sử giao dịch (cả chuyển đi và nhận về), mới nhất trước
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        "200":
+          description: Danh sách giao dịch
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/HistoryItem" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
   /healthz:
     get:
       summary: Health check
@@ -223,6 +318,52 @@ components:
       required: [refresh_token]
       properties:
         refresh_token: { type: string }
+    Wallet:
+      type: object
+      required: [id, user_id, balance, currency, created_at, updated_at]
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        balance: { type: integer, format: int64, minimum: 0, description: "Số dư, đơn vị đồng", example: 1000000 }
+        currency: { type: string, example: VND }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    TransferRequest:
+      type: object
+      required: [to_username, amount]
+      additionalProperties: false
+      properties:
+        to_username: { type: string, example: bob }
+        amount:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 1000000000000
+          description: Số nguyên đồng. 1.5, 5e4 hay "50000" đều bị từ chối.
+          example: 50000
+    Transfer:
+      type: object
+      required: [id, from_wallet_id, to_wallet_id, amount, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        from_wallet_id: { type: string, format: uuid }
+        to_wallet_id: { type: string, format: uuid }
+        amount: { type: integer, format: int64, example: 50000 }
+        created_at: { type: string, format: date-time }
+    TransferResult:
+      type: object
+      required: [transfer, balance]
+      properties:
+        transfer: { $ref: "#/components/schemas/Transfer" }
+        balance: { type: integer, format: int64, description: Số dư hiện tại của ví gửi, example: 950000 }
+    HistoryItem:
+      allOf:
+        - $ref: "#/components/schemas/Transfer"
+        - type: object
+          required: [direction, counterparty]
+          properties:
+            direction: { type: string, enum: [in, out] }
+            counterparty: { type: string, description: Username của bên còn lại, example: bob }
     Error:
       type: object
       properties:

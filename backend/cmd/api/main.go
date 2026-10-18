@@ -18,6 +18,7 @@ import (
 	"github.com/proonhit/realtime-price-board/backend/internal/platform/redis"
 	"github.com/proonhit/realtime-price-board/backend/internal/price"
 	"github.com/proonhit/realtime-price-board/backend/internal/realtime"
+	"github.com/proonhit/realtime-price-board/backend/internal/wallet"
 	"github.com/proonhit/realtime-price-board/backend/internal/watchlist"
 )
 
@@ -50,6 +51,7 @@ func run() error {
 
 	prices := price.NewService(price.NewStore(db), price.NewCache(rdb))
 	watch := watchlist.NewService(watchlist.NewStore(db))
+	wallets := wallet.NewService(wallet.NewStore(db))
 	tokens := auth.Tokens{Secret: []byte(cfg.JWTSecret), TTL: cfg.AccessTTL}
 	authSvc := auth.NewService(auth.NewStore(db), tokens, cfg.RefreshTTL)
 	hub := realtime.NewHub()
@@ -59,7 +61,10 @@ func run() error {
 
 	mux := http.NewServeMux()
 	price.NewHandler(prices).Register(mux)
-	watchlist.NewHandler(watch).Register(mux)
+	// Middleware dựng một lần ở đây rồi truyền cho các package cần bảo vệ route.
+	requireAuth := auth.RequireAuth(tokens)
+	watchlist.NewHandler(watch, requireAuth).Register(mux)
+	wallet.NewHandler(wallets, requireAuth).Register(mux)
 	auth.NewHandler(authSvc, tokens).Register(mux)
 	realtime.NewHandler(hub, prices).Register(mux)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })

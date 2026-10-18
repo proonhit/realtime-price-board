@@ -1087,4 +1087,4 @@ Race condition: hai request cùng lúc đều thấy "chưa có". Unique index t
 Để không package nào khác tạo được cùng key, tránh va chạm và ghi đè ngoài ý muốn.
 
 **Có thể cải thiện gì thêm?**
-Rate limit cho `/login` (chống dò mật khẩu), phát hiện tái sử dụng refresh token đã rotate để thu hồi cả "họ" token, dọn định kỳ token hết hạn, xác nhận email, chuyển refresh token sang cookie httpOnly, watchlist riêng cho từng user (thêm cột `user_id`).
+Rate limit cho `/login` (chống dò mật khẩu), phát hiện tái sử dụng refresh token đã rotate để thu hồi cả "họ" token, dọn định kỳ token hết hạn, xác nhận email, chuyển refresh token sang cookie httpOnly. (Watchlist riêng cho từng user đã làm, xem [watchlist.md](watchlist.md): ví dụ đầu tiên dùng `RequireAuth` ngoài package auth.)
