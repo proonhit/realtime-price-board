@@ -85,6 +85,86 @@ paths:
       responses:
         "204": { description: Đã xoá }
         "404": { $ref: "#/components/responses/Error" }
+  /api/auth/register:
+    post:
+      summary: Đăng ký tài khoản
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RegisterRequest" }
+      responses:
+        "201":
+          description: User vừa tạo
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/Error" }
+        "409":
+          description: Email hoặc username đã được dùng
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /api/auth/login:
+    post:
+      summary: Đăng nhập bằng email và mật khẩu
+      description: |
+        Sai email hay sai mật khẩu đều trả cùng một lỗi 401 để không lộ email nào đã đăng ký.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: Cặp token và thông tin user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TokenPair" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+  /api/auth/refresh:
+    post:
+      summary: Đổi refresh token lấy cặp token mới
+      description: |
+        Refresh token cũ bị thu hồi ngay (rotation), mỗi refresh token chỉ dùng được một lần.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RefreshRequest" }
+      responses:
+        "200":
+          description: Cặp token mới
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TokenPair" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+  /api/auth/logout:
+    post:
+      summary: Đăng xuất (thu hồi refresh token)
+      description: Idempotent; token không tồn tại hoặc đã thu hồi vẫn trả 204.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RefreshRequest" }
+      responses:
+        "204": { description: Đã đăng xuất }
+        "400": { $ref: "#/components/responses/Error" }
+  /api/auth/me:
+    get:
+      summary: Thông tin user đang đăng nhập
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User hiện tại
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Error" }
   /healthz:
     get:
       summary: Health check
@@ -105,10 +185,53 @@ components:
         symbol: { type: string, example: FPT }
         price: { type: number, example: 120.35 }
         ts: { type: integer, description: Unix milliseconds, example: 1760400000000 }
+    User:
+      type: object
+      required: [id, email, username, created_at, last_login_at]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email, example: alice@example.com }
+        username: { type: string, example: alice }
+        created_at: { type: string, format: date-time }
+        last_login_at:
+          type: [string, "null"]
+          format: date-time
+          description: null nếu chưa đăng nhập lần nào
+    TokenPair:
+      type: object
+      required: [access_token, refresh_token, expires_in, user]
+      properties:
+        access_token: { type: string, description: "JWT HS256, gửi qua header `Authorization: Bearer <token>`" }
+        refresh_token: { type: string, description: "Chuỗi ngẫu nhiên, chỉ dùng cho /refresh và /logout" }
+        expires_in: { type: integer, description: Số giây access token còn hiệu lực, example: 900 }
+        user: { $ref: "#/components/schemas/User" }
+    RegisterRequest:
+      type: object
+      required: [email, username, password]
+      properties:
+        email: { type: string, format: email, maxLength: 255, example: alice@example.com }
+        username: { type: string, pattern: "^[a-zA-Z0-9_]{3,50}$", example: alice }
+        password: { type: string, minLength: 8, description: "8-72 byte (giới hạn của bcrypt)", example: password123 }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, example: alice@example.com }
+        password: { type: string, example: password123 }
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token: { type: string }
     Error:
       type: object
       properties:
         error: { type: string }
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   responses:
     Error:
       description: Lỗi

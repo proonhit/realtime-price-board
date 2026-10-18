@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/proonhit/realtime-price-board/backend/internal/auth"
 	"github.com/proonhit/realtime-price-board/backend/internal/platform/config"
 	"github.com/proonhit/realtime-price-board/backend/internal/platform/postgres"
 	"github.com/proonhit/realtime-price-board/backend/internal/platform/redis"
@@ -28,6 +29,10 @@ func main() {
 
 func run() error {
 	cfg := config.Load()
+	// HS256 nên dùng secret ít nhất 32 byte (256 bit). Chỉ cảnh báo để không chặn chạy local.
+	if len(cfg.JWTSecret) < 32 {
+		log.Println("WARNING: JWT_SECRET is unset or shorter than 32 bytes; set a long random value outside local dev")
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -45,6 +50,8 @@ func run() error {
 
 	prices := price.NewService(price.NewStore(db), price.NewCache(rdb))
 	watch := watchlist.NewService(watchlist.NewStore(db))
+	tokens := auth.Tokens{Secret: []byte(cfg.JWTSecret), TTL: cfg.AccessTTL}
+	authSvc := auth.NewService(auth.NewStore(db), tokens, cfg.RefreshTTL)
 	hub := realtime.NewHub()
 
 	busErr := make(chan error, 1)
@@ -53,6 +60,7 @@ func run() error {
 	mux := http.NewServeMux()
 	price.NewHandler(prices).Register(mux)
 	watchlist.NewHandler(watch).Register(mux)
+	auth.NewHandler(authSvc, tokens).Register(mux)
 	realtime.NewHandler(hub, prices).Register(mux)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })
 

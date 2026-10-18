@@ -22,7 +22,7 @@ func Load() Config {
 		DatabaseURL:  env("DATABASE_URL", "postgres://app:app@localhost:5432/priceboard"),
 		RedisAddr:    env("REDIS_ADDR", "localhost:6379"),
 		TickInterval: duration("TICK_INTERVAL", 500*time.Millisecond),
-		JWTSecret:    env("JWT_SECRET", "secret"),
+		JWTSecret:    env("JWT_SECRET", "dev-only-insecure-secret"), // chỉ cho local; < 32 byte nên cmd/api sẽ cảnh báo
 		AccessTTL:    duration("ACCESS_TTL", 15*time.Minute),
 		RefreshTTL:   duration("REFRESH_TTL", 7*24*time.Hour),
 	}
