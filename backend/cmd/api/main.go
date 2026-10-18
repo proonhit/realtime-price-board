@@ -59,7 +59,9 @@ func run() error {
 
 	mux := http.NewServeMux()
 	price.NewHandler(prices).Register(mux)
-	watchlist.NewHandler(watch).Register(mux)
+	// Middleware dựng một lần ở đây rồi truyền cho các package cần bảo vệ route.
+	requireAuth := auth.RequireAuth(tokens)
+	watchlist.NewHandler(watch, requireAuth).Register(mux)
 	auth.NewHandler(authSvc, tokens).Register(mux)
 	realtime.NewHandler(hub, prices).Register(mux)
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.Write([]byte("ok")) })

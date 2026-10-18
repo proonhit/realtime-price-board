@@ -9,34 +9,39 @@ import (
 	"github.com/proonhit/realtime-price-board/backend/internal/price"
 )
 
-type memStore struct{ syms []string }
+// memStore giữ watchlist của từng user trong map: key là user id.
+type memStore struct{ byUser map[string][]string }
 
-func (m *memStore) List(context.Context) ([]string, error) {
-	return slices.Sorted(slices.Values(m.syms)), nil
+func newMemStore() *memStore { return &memStore{byUser: map[string][]string{}} }
+
+func (m *memStore) List(_ context.Context, userID string) ([]string, error) {
+	// slices.Sorted luôn trả slice mới (không nil) nên JSON là [] khi rỗng.
+	return slices.Sorted(slices.Values(m.byUser[userID])), nil
 }
 
-func (m *memStore) Add(_ context.Context, s string) error {
-	if !slices.Contains(m.syms, s) {
-		m.syms = append(m.syms, s)
+func (m *memStore) Add(_ context.Context, userID, s string) error {
+	if !slices.Contains(m.byUser[userID], s) {
+		m.byUser[userID] = append(m.byUser[userID], s)
 	}
 	return nil
 }
 
-func (m *memStore) Remove(_ context.Context, s string) (bool, error) {
-	i := slices.Index(m.syms, s)
+func (m *memStore) Remove(_ context.Context, userID, s string) (bool, error) {
+	syms := m.byUser[userID]
+	i := slices.Index(syms, s)
 	if i < 0 {
 		return false, nil
 	}
-	m.syms = slices.Delete(m.syms, i, i+1)
+	m.byUser[userID] = slices.Delete(syms, i, i+1)
 	return true, nil
 }
 
 func TestAddNormalizesAndDeduplicates(t *testing.T) {
-	svc := NewService(&memStore{})
+	svc := NewService(newMemStore())
 	ctx := context.Background()
 
-	svc.Add(ctx, "vnm")
-	got, err := svc.Add(ctx, " VNM ")
+	svc.Add(ctx, "alice", "vnm")
+	got, err := svc.Add(ctx, "alice", " VNM ")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,20 +51,48 @@ func TestAddNormalizesAndDeduplicates(t *testing.T) {
 }
 
 func TestAddRejectsUnknownSymbol(t *testing.T) {
-	svc := NewService(&memStore{})
+	svc := NewService(newMemStore())
 
-	if _, err := svc.Add(context.Background(), "AAPL"); !errors.Is(err, price.ErrUnknownSymbol) {
+	if _, err := svc.Add(context.Background(), "alice", "AAPL"); !errors.Is(err, price.ErrUnknownSymbol) {
 		t.Fatalf("err = %v, want ErrUnknownSymbol", err)
 	}
 }
 
-func TestRemoveMissingSymbol(t *testing.T) {
-	svc := NewService(&memStore{syms: []string{"FPT"}})
-
-	if err := svc.Remove(context.Background(), "VNM"); !errors.Is(err, ErrNotInWatchlist) {
-		t.Fatalf("err = %v, want ErrNotInWatchlist", err)
+func TestRemove(t *testing.T) {
+	tests := []struct {
+		name    string
+		userID  string
+		symbol  string
+		wantErr error
+	}{
+		{"own symbol", "alice", "fpt", nil},
+		{"not in list", "alice", "VNM", ErrNotInWatchlist},
+		{"unknown symbol", "alice", "AAPL", price.ErrUnknownSymbol},
+		// bob không xoá được mã nằm trong danh sách của alice.
+		{"other user's symbol", "bob", "FPT", ErrNotInWatchlist},
 	}
-	if err := svc.Remove(context.Background(), "fpt"); err != nil {
-		t.Fatalf("remove FPT: %v", err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := newMemStore()
+			m.byUser["alice"] = []string{"FPT"}
+			err := NewService(m).Remove(context.Background(), tt.userID, tt.symbol)
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("err = %v, want %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestListIsolatedPerUser(t *testing.T) {
+	svc := NewService(newMemStore())
+	ctx := context.Background()
+
+	svc.Add(ctx, "alice", "FPT")
+	svc.Add(ctx, "bob", "VNM")
+
+	alice, _ := svc.List(ctx, "alice")
+	bob, _ := svc.List(ctx, "bob")
+	if !slices.Equal(alice, []string{"FPT"}) || !slices.Equal(bob, []string{"VNM"}) {
+		t.Fatalf("alice = %v, bob = %v; want [FPT] and [VNM]", alice, bob)
 	}
 }
